@@ -1,3 +1,30 @@
+# Define the file path
+$filePath = "C:\Temp\DeploymentRuleset.txt"
+
+# Define the reference date
+$referenceDate = Get-Date "08/13/2024"
+
+# Check if the file exists
+if (Test-Path $filePath) {
+    # Get the Date Modified property of the file
+    $fileModifiedDate = (Get-Item $filePath).LastWriteTime
+
+    # Output the file's Date Modified and the reference date for debugging
+    Write-Host "File Last Modified Date: $($fileModifiedDate)"
+    Write-Host "Reference Date: $($referenceDate)"
+
+    # Compare the file's Date Modified with the reference date
+    if ($fileModifiedDate -le $referenceDate) {
+        Write-Host "File is older."
+    } else {
+        Write-Host "File is newer."
+    }
+} else {
+    Write-Host "File does not exist."
+}
+---------------------
+
+
 # Function to get the system uptime
 function Get-SystemUptime {
     $uptime = (Get-CimInstance Win32_OperatingSystem).LastBootUpTime
