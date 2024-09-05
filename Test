@@ -1,3 +1,34 @@
+#Populate with the App Registration details and Tenant ID
+$appid = ''
+$tenantid = ''
+$secretkey = ''
+#appId     = $env:PSAppID
+#appKey    = $env:PSTenantID
+#secretKey = $env:PSSecretKey
+$body =  @{
+    Grant_Type    = "client_credentials"
+    Scope         = "https://graph.microsoft.com/.default"
+    Client_Id     = $appid
+    Client_Secret = $secretkey
+}
+$connection = Invoke-RestMethod `
+    -Uri https://login.microsoftonline.com/$tenantid/oauth2/v2.0/token `
+    -Method POST `
+    -Body $body
+$graphApiToken = $connection.access_token
+ 
+$targetParameter = (Get-Command Connect-MgGraph).Parameters['AccessToken']
+ 
+if ($targetParameter.ParameterType -eq [securestring]){
+  Connect-MgGraph -AccessToken ($graphApiToken |ConvertTo-SecureString -AsPlainText -Force)
+}
+else {
+  Connect-MgGraph -AccessToken $graphApiToken
+}
+
+
+
+-----------------------------------
 # Define the file path
 $filePath = "C:\Temp\DeploymentRuleset.txt"
 
