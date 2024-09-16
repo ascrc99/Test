@@ -1,177 +1,179 @@
-#No Reg backup 
+# No Reg Backup
 
-
+# Function to remove WSUS-related registry values
 Function Remove-WUServerRegistryValue {
-        param (
-            [string]$RegistryKey
-        )
+    param (
+        [string]$RegistryKey
+    )
 
+    try {
+        Write-Host "Searching in registry key: $RegistryKey"
 
-        try {
-            Write-Host "Searching in registry key: $RegistryKey"
-            
-            if (Test-Path -Path $RegistryKey) {
-               
-                if (Get-ItemProperty -Path $RegistryKey -Name 'WUServer' -ErrorAction SilentlyContinue) {
-                    Remove-ItemProperty -Path $RegistryKey -Name 'WUServer' -Force
-                    $global:WUServerCount += 1
-                    Write-Host "Registry value  WUServer deleted from: $RegistryKey. Count[$global:WUServerCount]" 
+        if (-not (Test-Path -Path $RegistryKey)) {
+            Write-Host "Registry key does not exist: $RegistryKey"
+            return
+        }
 
-                }
+        # Remove or update registry values related to WSUS
+        Remove-RegistryValue -RegistryKey $RegistryKey -ValueName 'WUServer' -CounterVar 'global:WUServerCount'
+        Remove-RegistryValue -RegistryKey $RegistryKey -ValueName 'WUStatusServer' -CounterVar 'global:WUStatusServerCount'
+        Set-RegistryValue -RegistryKey $RegistryKey -ValueName 'UseWUServer' -Value 0 -CounterVar 'global:UseWUServerCount'
+        Set-RegistryValue -RegistryKey $RegistryKey -ValueName 'NoAutoUpdate' -Value 0
 
-               
-                if (Get-ItemProperty -Path $RegistryKey -Name 'WUStatusServer' -ErrorAction SilentlyContinue) {
-               
-                    Remove-ItemProperty -Path $RegistryKey -Name 'WUStatusServer' -Force
-                    $global:WUStatusServerCount +=1
-                    Write-Host "Registry value WUStatusServer deleted from: $RegistryKey. Count[$global:WUStatusServerCount]" 
+    } catch {
+        Write-Host "Error in Remove-WUServerRegistryValue function for registry key [$RegistryKey]: $_"
+    }
+}
 
-                }
-               
-                if (Get-ItemProperty -Path $RegistryKey -Name 'UseWUServer' -ErrorAction SilentlyContinue) {
-                    
-                    Set-ItemProperty -Path $RegistryKey -Name 'UseWUServer' -Value 0
-                    $global:UseWUServerCount += 1
-                    Write-Host "Registry value name UseWUServer set to 0 from key : $RegistryKey. Count[$global:UseWUServerCount]"
-                
-                }
+# Function to update registry value
+Function UpdateRegValueData {
+    param (
+        [String]$regkeytoUpdate,
+        [String]$regvalue,
+        [string]$regvaluedata
+    )
 
-                #check if NoAutoUpdate exists
-                if (Get-ItemProperty -Path $RegistryKey -Name 'NoAutoUpdate' -ErrorAction SilentlyContinue) {
-                    #update registry value name "NoAutoUpdate" to value data 0
-                    Set-ItemProperty -Path $RegistryKey -Name 'NoAutoUpdate' -Value 0
-                    Write-Host "Registry value name NoAutoUpdate set to 0 from key : $RegistryKey"
-                
-                }
+    try {
+        if (-not (Test-Path -Path $regkeytoUpdate)) {
+            Write-Host "Warning - Registry key does not exist: $regkeytoUpdate"
+            return
+        }
 
-                
+        Write-Host "Updating registry value [$regvalue] to [$regvaluedata] in key [$regkeytoUpdate]"
+
+        if (Get-ItemProperty -Path $regkeytoUpdate -Name $regvalue -ErrorAction SilentlyContinue) {
+            Set-ItemProperty -Path $regkeytoUpdate -Name $regvalue -Value $regvaluedata
+            # Validate the action
+            $valuedata = (Get-ItemProperty -Path $regkeytoUpdate -Name $regvalue -ErrorAction SilentlyContinue).$regvalue
+            if ($valuedata -eq $regvaluedata) {
+                Write-Host "Success - Registry value [$regvalue] set to [$regvaluedata] in key [$regkeytoUpdate]"
+            } else {
+                Write-Host "Failed - Could not set registry value [$regvalue] to [$regvaluedata] in key [$regkeytoUpdate]"
             }
+        } else {
+            Write-Host "Warning - Registry value [$regvalue] does not exist in key [$regkeytoUpdate]."
         }
-        catch {
-            Write-Host "Failed - Remove-WUServerRegistryValue funct, at registry key [$RegistryKey]." 
-        }
+    } catch {
+        Write-Host "Error in UpdateRegValueData function: $_"
     }
+}
 
-  
+# Function to delete registry value
+Function DeleteRegValue {
+    param (
+        [String]$regkeytoUpdate,
+        [String]$regvalue
+    )
 
-Function UpdateRegValueData{
-        Param
-        (
-            [String]$regkeytoUpdate = "",
-            [String]$regvalue,
-            [string]$regvaluedata
-        )
-
-        try{
-                if(Test-Path -Path $regkeytoUpdate) {
-
-                    Write-Host "Status - UpdateRegValueData funct. Parent key [$($regkeytoUpdate)]. regvalue = $($regvalue), regvaluedata = $($regvaluedata)"                      
-                    if (Get-ItemProperty -Path $regkeytoUpdate -Name $($regvalue) -ErrorAction SilentlyContinue) {
-                        Set-ItemProperty -Path $regkeytoUpdate -Name $($regvalue) -Value $($regvaluedata)
-
-                        #validate the action
-                        [string]$valuedata = Get-ItemProperty -Path $regkeytoUpdate -Name $($regvalue) -ErrorAction SilentlyContinue
-                        if (($valuedata).trim() -eq $regvaluedata.Trim()) {
-                            Write-Host "Success - Registry value name $regvalue set to $($regvaluedata) from key : $regkeytoUpdate"
-                        } else { 
-                        Write-Host "Failed - Registry value name $regvalue set to $($regvaluedatafrom) from key : $regkeytoUpdate" 
-                        }
-                          
-                        
-
-                    } else { 
-                    Write-Host "Warning - Registry key $regkeytoUpdate, value name $($regvalue) not exist."
-                    }                                               
-                   
-                }  
-                else {
-                 Write-Host "Warning - Registry key $($regkeytoUpdate) not exist." 
-                 } 
-
-        }
-         catch {
-         Write-Host "Failed - UpdateRegValueData funct. Parent key $($regkeytoUpdate). Error message at line $($PSCmdlet.MyInvocation.ScriptLineNumber):[$($_.Exception.Message)]" 
-         }
-
-    }
-
-Function DeleteRegValue{
-        Param
-        (
-            [String]$regkeytoUpdate = "",
-            [String]$regvalue
-        )
-
-        try{
-                if(Test-Path -Path $regkeytoUpdate) {
-
-                    Write-Host "Status - DeleteRegValue funct. Parent key [$($regkeytoUpdate)]. regvalue = $($regvalue)" 
-                    if (Get-ItemProperty -Path $regkeytoUpdate -Name $($regvalue) -ErrorAction SilentlyContinue) {
-                        Remove-ItemProperty -Path $regkeytoUpdate -Name $($regvalue) -Force
-
-                        #validate the action
-                        $valuedata = $null
-                        [string]$valuedata = Get-ItemProperty -Path $regkeytoUpdate -Name $($regvalue) -ErrorAction SilentlyContinue
-                        if (-Not($valuedata)) {
-                            Write-Host -Value "Success - Registry value name $($regvalue) removed from key : $($regkeytoUpdate)" 
-                        }
-                         else { Write-Host "Failed - Registry value name $($regvalue) removed from key : $($regkeytoUpdate)"
-                        }
-                          
-                        
-
-                    } 
-                    else { 
-                        Write-Host -Value "Warning - Registry key $($regkeytoUpdate), value name $($regvalue) not exist."
-                    }
-                   
-                } 
-                else { 
-                    Write-Host "Warning - Registry key $($regkeytoUpdate) not exist." 
-                }  
-        } 
-        catch { 
-            Write-Host "Failed - DeleteRegValue funct. Parent key $($regkeytoUpdate). Error message at line $($PSCmdlet.MyInvocation.ScriptLineNumber):[$($_.Exception.Message)]" 
+    try {
+        if (-not (Test-Path -Path $regkeytoUpdate)) {
+            Write-Host "Warning - Registry key does not exist: $regkeytoUpdate"
+            return
         }
 
+        Write-Host "Deleting registry value [$regvalue] in key [$regkeytoUpdate]"
+
+        if (Get-ItemProperty -Path $regkeytoUpdate -Name $regvalue -ErrorAction SilentlyContinue) {
+            Remove-ItemProperty -Path $regkeytoUpdate -Name $regvalue -Force
+            # Validate the deletion
+            $valuedata = Get-ItemProperty -Path $regkeytoUpdate -Name $regvalue -ErrorAction SilentlyContinue
+            if (-not $valuedata) {
+                Write-Host "Success - Registry value [$regvalue] removed from key [$regkeytoUpdate]"
+            } else {
+                Write-Host "Failed - Could not remove registry value [$regvalue] from key [$regkeytoUpdate]"
+            }
+        } else {
+            Write-Host "Warning - Registry value [$regvalue] does not exist in key [$regkeytoUpdate]."
+        }
+    } catch {
+        Write-Host "Error in DeleteRegValue function: $_"
     }
+}
 
+# Helper function to remove a registry value and update a counter
+Function Remove-RegistryValue {
+    param (
+        [string]$RegistryKey,
+        [string]$ValueName,
+        [string]$CounterVar
+    )
 
+    try {
+        if (Get-ItemProperty -Path $RegistryKey -Name $ValueName -ErrorAction SilentlyContinue) {
+            Remove-ItemProperty -Path $RegistryKey -Name $ValueName -Force
+            Set-Variable -Name $CounterVar -Value ($(Get-Variable -Name $CounterVar).Value + 1) -Scope Global
+            Write-Host "Removed registry value [$ValueName] from key [$RegistryKey]. Count [$($global:$CounterVar)]"
+        } else {
+            Write-Host "Registry value [$ValueName] not found in key [$RegistryKey]."
+        }
+    } catch {
+        Write-Host "Error removing registry value [$ValueName] from key [$RegistryKey]: $_"
+    }
+}
 
-    
-#Main Program 
+# Helper function to set a registry value
+Function Set-RegistryValue {
+    param (
+        [string]$RegistryKey,
+        [string]$ValueName,
+        [object]$Value,
+        [string]$CounterVar = $null
+    )
 
-    # var definition
-        #Specify the root registry keys from where you want to start the search
-         $rootRegistryKey1 = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
-         $rootRegistryKey2 = "HKLM:\SOFTWARE\MICROSOFT\WindowsUpdate"
-         $rootRegistryKey3 = "HKLM:\SOFTWARE\WOW6432Node\Policies\Microsoft\Windows\WindowsUpdate"
-   
+    try {
+        if (Get-ItemProperty -Path $RegistryKey -Name $ValueName -ErrorAction SilentlyContinue) {
+            Set-ItemProperty -Path $RegistryKey -Name $ValueName -Value $Value
+            if ($CounterVar) {
+                Set-Variable -Name $CounterVar -Value ($(Get-Variable -Name $CounterVar).Value + 1) -Scope Global
+            }
+            Write-Host "Set registry value [$ValueName] to [$Value] in key [$RegistryKey]."
+        } else {
+            Write-Host "Registry value [$ValueName] not found in key [$RegistryKey], unable to set."
+        }
+    } catch {
+        Write-Host "Error setting registry value [$ValueName] in key [$RegistryKey]: $_"
+    }
+}
 
-         #counter for registry remove validation
-        [int32]$global:WUServerCount = 0
-        [int32]$global:WUStatusServerCount = 0
-        [int32]$global:UseWUServerCount = 0
+# Main Program
 
-   
+# Define root registry keys
+$rootRegistryKeys = @(
+    "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate",
+    "HKLM:\SOFTWARE\MICROSOFT\WindowsUpdate",
+    "HKLM:\SOFTWARE\WOW6432Node\Policies\Microsoft\Windows\WindowsUpdate"
+)
 
-    # remove WSUS settings  
-        Remove-WUServerRegistryValue -RegistryKey $rootRegistryKey1
-        Remove-WUServerRegistryValue -RegistryKey $rootRegistryKey2
-        Remove-WUServerRegistryValue -RegistryKey $rootRegistryKey3
+# Initialize counters
+[int32]$global:WUServerCount = 0
+[int32]$global:WUStatusServerCount = 0
+[int32]$global:UseWUServerCount = 0
 
-      
-    # Set Registry values data for DoNotConnectToWindowsUpdateInternetLocations and DisableWindowsUpdateAccess, DeferFeatureUpdates, DeferQualityUpdates
-         UpdateRegValueData -regkeytoUpdate $rootRegistryKey1 -regvalue "DisableWindowsUpdateAccess" -regvaluedata "0"
-         UpdateRegValueData -regkeytoUpdate $rootRegistryKey1 -regvalue "DeferFeatureUpdates" -regvaluedata "0"
-         UpdateRegValueData -regkeytoUpdate $rootRegistryKey1 -regvalue "DeferQualityUpdates" -regvaluedata "0"
-         UpdateRegValueData -regkeytoUpdate $rootRegistryKey1 -regvalue "DoNotConnectToWindowsUpdateInternetLocations" -regvaluedata "0"
-     
-    # Delete registry value name 
-         DeleteRegValue -regkeytoUpdate $rootRegistryKey1 -regvalue "SetPolicyDrivenUpdateSourceForDriverUpdates"
-         DeleteRegValue -regkeytoUpdate $rootRegistryKey1 -regvalue "SetPolicyDrivenUpdateSourceForFeatureUpdates"
-         DeleteRegValue -regkeytoUpdate $rootRegistryKey1 -regvalue "SetPolicyDrivenUpdateSourceForOtherUpdates"
-         DeleteRegValue -regkeytoUpdate $rootRegistryKey1 -regvalue "SetPolicyDrivenUpdateSourceForQualityUpdates"
-     
+# Remove WSUS settings from registry keys
+foreach ($key in $rootRegistryKeys) {
+    Remove-WUServerRegistryValue -RegistryKey $key
+}
 
- 
+# Update specific registry values
+$valuesToUpdate = @(
+    @{ Key = $rootRegistryKeys[0]; Name = "DisableWindowsUpdateAccess"; Value = "0" },
+    @{ Key = $rootRegistryKeys[0]; Name = "DeferFeatureUpdates"; Value = "0" },
+    @{ Key = $rootRegistryKeys[0]; Name = "DeferQualityUpdates"; Value = "0" },
+    @{ Key = $rootRegistryKeys[0]; Name = "DoNotConnectToWindowsUpdateInternetLocations"; Value = "0" }
+)
+
+foreach ($item in $valuesToUpdate) {
+    UpdateRegValueData -regkeytoUpdate $item.Key -regvalue $item.Name -regvaluedata $item.Value
+}
+
+# Delete specific registry values
+$valuesToDelete = @(
+    @{ Key = $rootRegistryKeys[0]; Name = "SetPolicyDrivenUpdateSourceForDriverUpdates" },
+    @{ Key = $rootRegistryKeys[0]; Name = "SetPolicyDrivenUpdateSourceForFeatureUpdates" },
+    @{ Key = $rootRegistryKeys[0]; Name = "SetPolicyDrivenUpdateSourceForOtherUpdates" },
+    @{ Key = $rootRegistryKeys[0]; Name = "SetPolicyDrivenUpdateSourceForQualityUpdates" }
+)
+
+foreach ($item in $valuesToDelete) {
+    DeleteRegValue -regkeytoUpdate $item.Key -regvalue $item.Name
+}
