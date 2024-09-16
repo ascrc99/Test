@@ -1,69 +1,177 @@
-#Populate with the App Registration details and Tenant ID
-$appid = ''
-$tenantid = ''
-$secretkey = ''
-#appId     = $env:PSAppID
-#appKey    = $env:PSTenantID
-#secretKey = $env:PSSecretKey
-$body =  @{
-    Grant_Type    = "client_credentials"
-    Scope         = "https://graph.microsoft.com/.default"
-    Client_Id     = $appid
-    Client_Secret = $secretkey
-}
-$connection = Invoke-RestMethod `
-    -Uri https://login.microsoftonline.com/$tenantid/oauth2/v2.0/token `
-    -Method POST `
-    -Body $body
-$graphApiToken = $connection.access_token
- 
-$targetParameter = (Get-Command Connect-MgGraph).Parameters['AccessToken']
- 
-if ($targetParameter.ParameterType -eq [securestring]){
-  Connect-MgGraph -AccessToken ($graphApiToken |ConvertTo-SecureString -AsPlainText -Force)
-}
-else {
-  Connect-MgGraph -AccessToken $graphApiToken
-}
+#No Reg backup 
 
 
+Function Remove-WUServerRegistryValue {
+        param (
+            [string]$RegistryKey
+        )
 
------------------------------------
-# Define the file path
-$filePath = "C:\Temp\DeploymentRuleset.txt"
 
-# Define the reference date
-$referenceDate = Get-Date "08/13/2024"
+        try {
+            Write-Host "Searching in registry key: $RegistryKey"
+            
+            if (Test-Path -Path $RegistryKey) {
+               
+                if (Get-ItemProperty -Path $RegistryKey -Name 'WUServer' -ErrorAction SilentlyContinue) {
+                    Remove-ItemProperty -Path $RegistryKey -Name 'WUServer' -Force
+                    $global:WUServerCount += 1
+                    Write-Host "Registry value  WUServer deleted from: $RegistryKey. Count[$global:WUServerCount]" 
 
-# Check if the file exists
-if (Test-Path $filePath) {
-    # Get the Date Modified property of the file
-    $fileModifiedDate = (Get-Item $filePath).LastWriteTime
+                }
 
-    # Output the file's Date Modified and the reference date for debugging
-    Write-Host "File Last Modified Date: $($fileModifiedDate)"
-    Write-Host "Reference Date: $($referenceDate)"
+               
+                if (Get-ItemProperty -Path $RegistryKey -Name 'WUStatusServer' -ErrorAction SilentlyContinue) {
+               
+                    Remove-ItemProperty -Path $RegistryKey -Name 'WUStatusServer' -Force
+                    $global:WUStatusServerCount +=1
+                    Write-Host "Registry value WUStatusServer deleted from: $RegistryKey. Count[$global:WUStatusServerCount]" 
 
-    # Compare the file's Date Modified with the reference date
-    if ($fileModifiedDate -le $referenceDate) {
-        Write-Host "File is older."
-    } else {
-        Write-Host "File is newer."
+                }
+               
+                if (Get-ItemProperty -Path $RegistryKey -Name 'UseWUServer' -ErrorAction SilentlyContinue) {
+                    
+                    Set-ItemProperty -Path $RegistryKey -Name 'UseWUServer' -Value 0
+                    $global:UseWUServerCount += 1
+                    Write-Host "Registry value name UseWUServer set to 0 from key : $RegistryKey. Count[$global:UseWUServerCount]"
+                
+                }
+
+                #check if NoAutoUpdate exists
+                if (Get-ItemProperty -Path $RegistryKey -Name 'NoAutoUpdate' -ErrorAction SilentlyContinue) {
+                    #update registry value name "NoAutoUpdate" to value data 0
+                    Set-ItemProperty -Path $RegistryKey -Name 'NoAutoUpdate' -Value 0
+                    Write-Host "Registry value name NoAutoUpdate set to 0 from key : $RegistryKey"
+                
+                }
+
+                
+            }
+        }
+        catch {
+            Write-Host "Failed - Remove-WUServerRegistryValue funct, at registry key [$RegistryKey]." 
+        }
     }
-} else {
-    Write-Host "File does not exist."
-}
----------------------
+
+  
+
+Function UpdateRegValueData{
+        Param
+        (
+            [String]$regkeytoUpdate = "",
+            [String]$regvalue,
+            [string]$regvaluedata
+        )
+
+        try{
+                if(Test-Path -Path $regkeytoUpdate) {
+
+                    Write-Host "Status - UpdateRegValueData funct. Parent key [$($regkeytoUpdate)]. regvalue = $($regvalue), regvaluedata = $($regvaluedata)"                      
+                    if (Get-ItemProperty -Path $regkeytoUpdate -Name $($regvalue) -ErrorAction SilentlyContinue) {
+                        Set-ItemProperty -Path $regkeytoUpdate -Name $($regvalue) -Value $($regvaluedata)
+
+                        #validate the action
+                        [string]$valuedata = Get-ItemProperty -Path $regkeytoUpdate -Name $($regvalue) -ErrorAction SilentlyContinue
+                        if (($valuedata).trim() -eq $regvaluedata.Trim()) {
+                            Write-Host "Success - Registry value name $regvalue set to $($regvaluedata) from key : $regkeytoUpdate"
+                        } else { 
+                        Write-Host "Failed - Registry value name $regvalue set to $($regvaluedatafrom) from key : $regkeytoUpdate" 
+                        }
+                          
+                        
+
+                    } else { 
+                    Write-Host "Warning - Registry key $regkeytoUpdate, value name $($regvalue) not exist."
+                    }                                               
+                   
+                }  
+                else {
+                 Write-Host "Warning - Registry key $($regkeytoUpdate) not exist." 
+                 } 
+
+        }
+         catch {
+         Write-Host "Failed - UpdateRegValueData funct. Parent key $($regkeytoUpdate). Error message at line $($PSCmdlet.MyInvocation.ScriptLineNumber):[$($_.Exception.Message)]" 
+         }
+
+    }
+
+Function DeleteRegValue{
+        Param
+        (
+            [String]$regkeytoUpdate = "",
+            [String]$regvalue
+        )
+
+        try{
+                if(Test-Path -Path $regkeytoUpdate) {
+
+                    Write-Host "Status - DeleteRegValue funct. Parent key [$($regkeytoUpdate)]. regvalue = $($regvalue)" 
+                    if (Get-ItemProperty -Path $regkeytoUpdate -Name $($regvalue) -ErrorAction SilentlyContinue) {
+                        Remove-ItemProperty -Path $regkeytoUpdate -Name $($regvalue) -Force
+
+                        #validate the action
+                        $valuedata = $null
+                        [string]$valuedata = Get-ItemProperty -Path $regkeytoUpdate -Name $($regvalue) -ErrorAction SilentlyContinue
+                        if (-Not($valuedata)) {
+                            Write-Host -Value "Success - Registry value name $($regvalue) removed from key : $($regkeytoUpdate)" 
+                        }
+                         else { Write-Host "Failed - Registry value name $($regvalue) removed from key : $($regkeytoUpdate)"
+                        }
+                          
+                        
+
+                    } 
+                    else { 
+                        Write-Host -Value "Warning - Registry key $($regkeytoUpdate), value name $($regvalue) not exist."
+                    }
+                   
+                } 
+                else { 
+                    Write-Host "Warning - Registry key $($regkeytoUpdate) not exist." 
+                }  
+        } 
+        catch { 
+            Write-Host "Failed - DeleteRegValue funct. Parent key $($regkeytoUpdate). Error message at line $($PSCmdlet.MyInvocation.ScriptLineNumber):[$($_.Exception.Message)]" 
+        }
+
+    }
 
 
-# Function to get the system uptime
-function Get-SystemUptime {
-    $uptime = (Get-CimInstance Win32_OperatingSystem).LastBootUpTime
-    $currentTime = Get-Date
-    $uptimeSpan = $currentTime - $uptime
-    Write-Output ("System Uptime: {0}" -f $uptimeSpan)
-    Write-Output ("Last Reboot Time: {0}" -f $uptime)
-}
 
-# Call the function
-Get-SystemUptime
+    
+#Main Program 
+
+    # var definition
+        #Specify the root registry keys from where you want to start the search
+         $rootRegistryKey1 = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
+         $rootRegistryKey2 = "HKLM:\SOFTWARE\MICROSOFT\WindowsUpdate"
+         $rootRegistryKey3 = "HKLM:\SOFTWARE\WOW6432Node\Policies\Microsoft\Windows\WindowsUpdate"
+   
+
+         #counter for registry remove validation
+        [int32]$global:WUServerCount = 0
+        [int32]$global:WUStatusServerCount = 0
+        [int32]$global:UseWUServerCount = 0
+
+   
+
+    # remove WSUS settings  
+        Remove-WUServerRegistryValue -RegistryKey $rootRegistryKey1
+        Remove-WUServerRegistryValue -RegistryKey $rootRegistryKey2
+        Remove-WUServerRegistryValue -RegistryKey $rootRegistryKey3
+
+      
+    # Set Registry values data for DoNotConnectToWindowsUpdateInternetLocations and DisableWindowsUpdateAccess, DeferFeatureUpdates, DeferQualityUpdates
+         UpdateRegValueData -regkeytoUpdate $rootRegistryKey1 -regvalue "DisableWindowsUpdateAccess" -regvaluedata "0"
+         UpdateRegValueData -regkeytoUpdate $rootRegistryKey1 -regvalue "DeferFeatureUpdates" -regvaluedata "0"
+         UpdateRegValueData -regkeytoUpdate $rootRegistryKey1 -regvalue "DeferQualityUpdates" -regvaluedata "0"
+         UpdateRegValueData -regkeytoUpdate $rootRegistryKey1 -regvalue "DoNotConnectToWindowsUpdateInternetLocations" -regvaluedata "0"
+     
+    # Delete registry value name 
+         DeleteRegValue -regkeytoUpdate $rootRegistryKey1 -regvalue "SetPolicyDrivenUpdateSourceForDriverUpdates"
+         DeleteRegValue -regkeytoUpdate $rootRegistryKey1 -regvalue "SetPolicyDrivenUpdateSourceForFeatureUpdates"
+         DeleteRegValue -regkeytoUpdate $rootRegistryKey1 -regvalue "SetPolicyDrivenUpdateSourceForOtherUpdates"
+         DeleteRegValue -regkeytoUpdate $rootRegistryKey1 -regvalue "SetPolicyDrivenUpdateSourceForQualityUpdates"
+     
+
+ 
