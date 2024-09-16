@@ -25,71 +25,6 @@ Function Remove-WUServerRegistryValue {
     }
 }
 
-# Function to update registry value
-Function UpdateRegValueData {
-    param (
-        [String]$regkeytoUpdate,
-        [String]$regvalue,
-        [string]$regvaluedata
-    )
-
-    try {
-        if (-not (Test-Path -Path $regkeytoUpdate)) {
-            Write-Host "Warning - Registry key does not exist: $regkeytoUpdate"
-            return
-        }
-
-        Write-Host "Updating registry value [$regvalue] to [$regvaluedata] in key [$regkeytoUpdate]"
-
-        if (Get-ItemProperty -Path $regkeytoUpdate -Name $regvalue -ErrorAction SilentlyContinue) {
-            Set-ItemProperty -Path $regkeytoUpdate -Name $regvalue -Value $regvaluedata
-            # Validate the action
-            $valuedata = (Get-ItemProperty -Path $regkeytoUpdate -Name $regvalue -ErrorAction SilentlyContinue).$regvalue
-            if ($valuedata -eq $regvaluedata) {
-                Write-Host "Success - Registry value [$regvalue] set to [$regvaluedata] in key [$regkeytoUpdate]"
-            } else {
-                Write-Host "Failed - Could not set registry value [$regvalue] to [$regvaluedata] in key [$regkeytoUpdate]"
-            }
-        } else {
-            Write-Host "Warning - Registry value [$regvalue] does not exist in key [$regkeytoUpdate]."
-        }
-    } catch {
-        Write-Host "Error in UpdateRegValueData function: $_"
-    }
-}
-
-# Function to delete registry value
-Function DeleteRegValue {
-    param (
-        [String]$regkeytoUpdate,
-        [String]$regvalue
-    )
-
-    try {
-        if (-not (Test-Path -Path $regkeytoUpdate)) {
-            Write-Host "Warning - Registry key does not exist: $regkeytoUpdate"
-            return
-        }
-
-        Write-Host "Deleting registry value [$regvalue] in key [$regkeytoUpdate]"
-
-        if (Get-ItemProperty -Path $regkeytoUpdate -Name $regvalue -ErrorAction SilentlyContinue) {
-            Remove-ItemProperty -Path $regkeytoUpdate -Name $regvalue -Force
-            # Validate the deletion
-            $valuedata = Get-ItemProperty -Path $regkeytoUpdate -Name $regvalue -ErrorAction SilentlyContinue
-            if (-not $valuedata) {
-                Write-Host "Success - Registry value [$regvalue] removed from key [$regkeytoUpdate]"
-            } else {
-                Write-Host "Failed - Could not remove registry value [$regvalue] from key [$regkeytoUpdate]"
-            }
-        } else {
-            Write-Host "Warning - Registry value [$regvalue] does not exist in key [$regkeytoUpdate]."
-        }
-    } catch {
-        Write-Host "Error in DeleteRegValue function: $_"
-    }
-}
-
 # Helper function to remove a registry value and update a counter
 Function Remove-RegistryValue {
     param (
@@ -163,7 +98,7 @@ $valuesToUpdate = @(
 )
 
 foreach ($item in $valuesToUpdate) {
-    UpdateRegValueData -regkeytoUpdate $item.Key -regvalue $item.Name -regvaluedata $item.Value
+    Set-RegistryValue -RegistryKey $item.Key -ValueName $item.Name -Value $item.Value
 }
 
 # Delete specific registry values
@@ -175,5 +110,5 @@ $valuesToDelete = @(
 )
 
 foreach ($item in $valuesToDelete) {
-    DeleteRegValue -regkeytoUpdate $item.Key -regvalue $item.Name
+    Remove-RegistryValue -RegistryKey $item.Key -ValueName $item.Name
 }
