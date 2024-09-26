@@ -1,31 +1,5 @@
 
 
-I wanted to address the concerns raised by your team regarding the previous version of the Azul Java Discovery Script (v3.0). We have communicated these issues to the vendor, and they have made the following adjustments based on your feedback:
-
-... Concerns with Previous Script (v3.0):
-1. ..Excessive LSASS Calls & Process Scanning:..
-   - The script made frequent LSASS calls and scanned live processes to fetch Java-related information, causing performance concerns.
-   
-2. ..Lack of Signature:..
-   - The script did not have a digital signature baked in, raising potential security concerns.
-
-3. ..Previous Deployment Strategy:..
-   - The script was deployed to all Windows 10 physical systems across the organization, set to run every hour for 5 days.
-
-... Vendor's Adjustments and New Deployment Plan:
-1. ..Script Execution Design:..
-   - The design requires the script to run in the system context to identify all running processes that are launching Java. This is necessary for accurate detection and, unfortunately, cannot be avoided.
-
-2. ..Script Signature:..
-   - The updated script now includes a digital signature, addressing the security concern.
-
-3. ..Improved Deployment Strategy:..
-   - To minimize the impact, we plan to deploy the script only to systems where it is absolutely needed. It will now run every 2 hours for just 3 days, reducing the load and frequency significantly.
-
-We have packaged the updated script for deployment through SCCM. Please review this new plan and provide your feedback.
-
-
-
 # No Reg Backup
 
 # Function to remove WSUS-related registry values
